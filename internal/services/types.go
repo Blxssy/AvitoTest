@@ -1,7 +1,7 @@
 package services
 
 type GetBalanceParams struct {
-	UserID uint32
+	Token string
 }
 
 type AuthParams struct {
@@ -13,4 +13,17 @@ type TransactionParams struct {
 	Token            string
 	ReceiverUsername string
 	Amount           int
+}
+
+type GetTransactionsParams struct {
+	Token string
+}
+
+type GetPurchasesParams struct {
+	Token string
+}
+
+type BuyItemParams struct {
+	Token string
+	Item  string
 }

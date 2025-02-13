@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Transaction struct {
-	ID               uint
+	ID               uint32
 	SenderUsername   string
 	ReceiverUsername string
 	Amount           int

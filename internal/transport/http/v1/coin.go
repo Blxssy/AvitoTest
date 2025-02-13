@@ -14,6 +14,8 @@ func (h *Handler) initCoinRoutes(router fiber.Router) {
 	{
 		coinRoute.Post("auth", h.Auth)
 		coinRoute.Post("sendCoin", h.Transaction)
+		coinRoute.Get("info", h.Info)
+		coinRoute.Get("buy/:item", h.BuyItem)
 	}
 }
 
@@ -52,13 +54,13 @@ func (h *Handler) Auth(ctx *fiber.Ctx) error {
 	})
 }
 
-type TransactionRequest struct {
-	ReceiverUsername string `json:"receiver_username"`
+type SendCoinRequest struct {
+	ReceiverUsername string `json:"toUser"`
 	Amount           int    `json:"amount"`
 }
 
 func (h *Handler) Transaction(ctx *fiber.Ctx) error {
-	var req TransactionRequest
+	var req SendCoinRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return fiber.NewError(
 			fiber.StatusBadRequest,
@@ -71,7 +73,7 @@ func (h *Handler) Transaction(ctx *fiber.Ctx) error {
 		return err
 	}
 
-	err = h.coinService.Transaction(ctx.Context(), services.TransactionParams{
+	err = h.coinService.SendCoins(ctx.Context(), services.TransactionParams{
 		Token:            token,
 		ReceiverUsername: req.ReceiverUsername,
 		Amount:           req.Amount,
@@ -87,6 +89,98 @@ func (h *Handler) Transaction(ctx *fiber.Ctx) error {
 			fiber.StatusInternalServerError,
 			fmt.Errorf("h.coinService.Transaction: %w", err).Error(),
 		)
+	}
+
+	return ctx.SendStatus(fiber.StatusOK)
+}
+
+func (h *Handler) Info(ctx *fiber.Ctx) error {
+	token, err := getToken(ctx)
+	if err != nil {
+		return err
+	}
+
+	balance, err := h.coinService.GetBalance(ctx.Context(), services.GetBalanceParams{
+		Token: token,
+	})
+	if err != nil {
+		if errors.Is(err, services.UnauthorizedError) {
+			return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, fmt.Sprintf("h.coinService.GetBalance: %v", err))
+	}
+
+	purchases, err := h.coinService.GetPurchases(ctx.Context(), services.GetPurchasesParams{
+		Token: token,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, fmt.Sprintf("h.coinService.GetPurchases: %v", err))
+	}
+
+	fInventory := make([]fiber.Map, len(purchases))
+	for i, p := range purchases {
+		fInventory[i] = fiber.Map{
+			"type":     p.Item,
+			"quantity": p.Count,
+		}
+	}
+
+	sentCoins, err := h.coinService.SendCoinsInfo(ctx.Context(), services.GetTransactionsParams{
+		Token: token,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, fmt.Sprintf("h.coinService.GetTransactions: %v", err))
+	}
+
+	fSentCoins := make([]fiber.Map, len(sentCoins))
+	for i, transaction := range sentCoins {
+		fSentCoins[i] = fiber.Map{
+			"toUser": transaction.ReceiverUsername,
+			"amount": transaction.Amount,
+		}
+	}
+
+	receivedCoins, err := h.coinService.ReceivedCoinsInfo(ctx.Context(), services.GetTransactionsParams{
+		Token: token,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, fmt.Sprintf("h.coinService.ReceivedCoinsInfo: %v", err))
+	}
+
+	fReceivedCoins := make([]fiber.Map, len(receivedCoins))
+	for i, t := range receivedCoins {
+		fReceivedCoins[i] = fiber.Map{
+			"fromUser": t.SenderUsername,
+			"amount":   t.Amount,
+		}
+	}
+
+	return ctx.JSON(fiber.Map{
+		"coins":     balance,
+		"inventory": fInventory,
+		"coinHistory": fiber.Map{
+			"received": fReceivedCoins,
+			"sent":     fSentCoins,
+		},
+	})
+}
+
+func (h *Handler) BuyItem(ctx *fiber.Ctx) error {
+	token, err := getToken(ctx)
+	if err != nil {
+		return err
+	}
+	item := ctx.Params("item")
+
+	err = h.coinService.BuyItem(ctx.Context(), services.BuyItemParams{
+		Token: token,
+		Item:  item,
+	})
+	if err != nil {
+		if errors.Is(err, services.UnauthorizedError) {
+			return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, fmt.Sprintf("h.coinService.BuyItem: %v", err))
 	}
 
 	return ctx.SendStatus(fiber.StatusOK)

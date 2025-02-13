@@ -29,9 +29,9 @@ where username = $1
 `
 
 const repoStmtGetBalance = `
-select * 
+select balance 
 from users
-where id = $1
+where username = $1
 `
 
 const repoStmtCreateUser = `
@@ -55,11 +55,11 @@ WHERE username = $2
 
 func (r *CoinRepo) GetBalance(ctx context.Context, params repo.GetBalanceParams) (int, error) {
 	var balance int
-	if err := r.db.SelectContext(
+	if err := r.db.GetContext(
 		ctx,
 		&balance,
 		repoStmtGetBalance,
-		params.UserID,
+		params.Username,
 	); err != nil {
 		return 0, fmt.Errorf("r.db.SelectContext: %w", err)
 	}

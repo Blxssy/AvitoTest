@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/Blxssy/AvitoTest/internal/models"
 	"github.com/Blxssy/AvitoTest/internal/repo"
 	"github.com/Blxssy/AvitoTest/pkg/token"
 	"golang.org/x/crypto/bcrypt"
@@ -15,7 +16,11 @@ var UnauthorizedError = errors.New("unauthorized")
 type CoinService interface {
 	GetBalance(ctx context.Context, params GetBalanceParams) (int, error)
 	Auth(ctx context.Context, params AuthParams) (string, error)
-	Transaction(ctx context.Context, params TransactionParams) error
+	SendCoins(ctx context.Context, params TransactionParams) error
+	SendCoinsInfo(ctx context.Context, params GetTransactionsParams) ([]models.Transaction, error)
+	ReceivedCoinsInfo(ctx context.Context, params GetTransactionsParams) ([]models.Transaction, error)
+	GetPurchases(ctx context.Context, params GetPurchasesParams) ([]models.PurchaseItem, error)
+	BuyItem(ctx context.Context, params BuyItemParams) error
 }
 
 type coinService struct {
@@ -31,12 +36,18 @@ func NewCoinService(repo repo.CoinRepository, tg *token.TokenGen) CoinService {
 }
 
 func (s *coinService) GetBalance(ctx context.Context, params GetBalanceParams) (int, error) {
+	username, err := s.tokenGen.ParseToken(params.Token)
+	if err != nil {
+		return 0, fmt.Errorf("s.tokenGen.ParseToken: %w", err)
+	}
+
 	balance, err := s.repo.GetBalance(ctx, repo.GetBalanceParams{
-		UserID: params.UserID,
+		Username: username,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("s.repo.GetBalance: %w", err)
 	}
+
 	return balance, nil
 }
 
@@ -47,7 +58,7 @@ func (s *coinService) Auth(ctx context.Context, params AuthParams) (string, erro
 	}
 
 	if user == nil {
-		passHash, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.DefaultCost)
+		passHash, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.MinCost)
 		if err != nil {
 			return "", UnauthorizedError
 		}
@@ -82,7 +93,7 @@ func (s *coinService) Auth(ctx context.Context, params AuthParams) (string, erro
 	return accessToken, nil
 }
 
-func (s *coinService) Transaction(ctx context.Context, params TransactionParams) error {
+func (s *coinService) SendCoins(ctx context.Context, params TransactionParams) error {
 	senderUsername, err := s.tokenGen.ParseToken(params.Token)
 	if err != nil {
 		return fmt.Errorf("s.tokenGen.ParseToken: %w", err)
@@ -94,6 +105,17 @@ func (s *coinService) Transaction(ctx context.Context, params TransactionParams)
 			return fmt.Errorf("receiver not found")
 		}
 		return fmt.Errorf("s.repo.GetUserByUsername: %w", err)
+	}
+
+	balance, err := s.repo.GetBalance(ctx, repo.GetBalanceParams{
+		Username: senderUsername,
+	})
+	if err != nil {
+		return fmt.Errorf("s.repo.GetBalance: %w", err)
+	}
+
+	if balance < params.Amount {
+		return fmt.Errorf("insufficient funds")
 	}
 
 	tx, err := s.repo.BeginTx(ctx)
@@ -126,6 +148,80 @@ func (s *coinService) Transaction(ctx context.Context, params TransactionParams)
 	})
 	if err != nil {
 		return fmt.Errorf("s.repo.IncreaseBalance: %w", err)
+	}
+
+	err = s.repo.SaveTransaction(ctx, repo.SaveTransactionParams{
+		SenderUsername:   senderUsername,
+		ReceiverUsername: params.ReceiverUsername,
+		Amount:           params.Amount,
+	})
+	if err != nil {
+		return fmt.Errorf("s.repo.SaveTransaction: %w", err)
+	}
+
+	return nil
+}
+
+func (s *coinService) SendCoinsInfo(ctx context.Context, params GetTransactionsParams) ([]models.Transaction, error) {
+	username, err := s.tokenGen.ParseToken(params.Token)
+	if err != nil {
+		return nil, fmt.Errorf("s.tokenGen.ParseToken: %w", err)
+	}
+
+	transactions, err := s.repo.GetTransactions(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("s.repo.GetTransactions: %w", err)
+	}
+
+	return transactions, nil
+}
+
+func (s *coinService) ReceivedCoinsInfo(ctx context.Context, params GetTransactionsParams) ([]models.Transaction, error) {
+	username, err := s.tokenGen.ParseToken(params.Token)
+	if err != nil {
+		return nil, fmt.Errorf("s.tokenGen.ParseToken: %w", err)
+	}
+
+	transactions, err := s.repo.ReceivedCoinsInfo(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("s.repo.ReceivedCoinsInfo: %w", err)
+	}
+
+	return transactions, nil
+}
+
+func (s *coinService) GetPurchases(ctx context.Context, params GetPurchasesParams) ([]models.PurchaseItem, error) {
+	username, err := s.tokenGen.ParseToken(params.Token)
+	if err != nil {
+		return nil, fmt.Errorf("s.tokenGen.ParseToken: %w", err)
+	}
+
+	purchases, err := s.repo.GetPurchases(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("s.repo.GetPurchases: %w", err)
+	}
+
+	return purchases, nil
+}
+
+func (s *coinService) BuyItem(ctx context.Context, params BuyItemParams) error {
+	username, err := s.tokenGen.ParseToken(params.Token)
+	if err != nil {
+		return fmt.Errorf("s.tokenGen.ParseToken: %w", err)
+	}
+
+	item, err := s.repo.GetItem(ctx, params.Item)
+	if err != nil {
+		return fmt.Errorf("s.repo.GetItem: %w", err)
+	}
+
+	err = s.repo.BuyItem(ctx, repo.BuyItemParams{
+		Username: username,
+		Item:     item.Name,
+		Price:    item.Price,
+	})
+	if err != nil {
+		return fmt.Errorf("s.repo.BuyItem: %w", err)
 	}
 
 	return nil

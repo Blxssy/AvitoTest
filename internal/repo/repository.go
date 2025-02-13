@@ -13,4 +13,10 @@ type CoinRepository interface {
 	BeginTx(ctx context.Context) (*sqlx.Tx, error)
 	DecreaseBalance(ctx context.Context, tx *sqlx.Tx, params ChangeBalanceParams) error
 	IncreaseBalance(ctx context.Context, tx *sqlx.Tx, params ChangeBalanceParams) error
+	SaveTransaction(ctx context.Context, params SaveTransactionParams) error
+	GetTransactions(ctx context.Context, username string) ([]models.Transaction, error)
+	ReceivedCoinsInfo(ctx context.Context, username string) ([]models.Transaction, error)
+	GetPurchases(ctx context.Context, username string) ([]models.PurchaseItem, error)
+	BuyItem(ctx context.Context, params BuyItemParams) error
+	GetItem(ctx context.Context, itemName string) (models.Item, error)
 }

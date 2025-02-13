@@ -1,7 +1,7 @@
 package repo
 
 type GetBalanceParams struct {
-	UserID uint32
+	Username string
 }
 
 type GetUserByIDParams struct {
@@ -21,4 +21,20 @@ type CreateUserParams struct {
 type ChangeBalanceParams struct {
 	Username string
 	Amount   int
+}
+
+type SaveTransactionParams struct {
+	SenderUsername   string
+	ReceiverUsername string
+	Amount           int
+}
+
+type GetTransactionsParams struct {
+	Username string
+}
+
+type BuyItemParams struct {
+	Username string
+	Item     string
+	Price    int
 }
