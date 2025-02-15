@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/Blxssy/AvitoTest/internal/models"
 	"github.com/Blxssy/AvitoTest/internal/repo"
+	"github.com/jmoiron/sqlx"
 	"time"
 )
 
@@ -107,4 +108,12 @@ func (r *CoinRepo) ReceivedCoinsInfo(ctx context.Context, username string) ([]mo
 	}
 
 	return transactions, nil
+}
+
+func (r *CoinRepo) CommitTx(tx *sqlx.Tx) error {
+	return tx.Commit()
+}
+
+func (r *CoinRepo) RollbackTx(tx *sqlx.Tx) error {
+	return tx.Rollback()
 }

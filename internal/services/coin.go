@@ -25,10 +25,10 @@ type CoinService interface {
 
 type coinService struct {
 	repo     repo.CoinRepository
-	tokenGen *token.TokenGen
+	tokenGen token.TokenGenerator
 }
 
-func NewCoinService(repo repo.CoinRepository, tg *token.TokenGen) CoinService {
+func NewCoinService(repo repo.CoinRepository, tg token.TokenGenerator) CoinService {
 	return &coinService{
 		repo:     repo,
 		tokenGen: tg,
@@ -124,39 +124,31 @@ func (s *coinService) SendCoins(ctx context.Context, params TransactionParams) e
 	}
 
 	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			return
-		} else if err != nil {
-			tx.Rollback()
-		} else {
-			err = tx.Commit()
+		if err != nil {
+			_ = s.repo.RollbackTx(tx)
 		}
 	}()
 
-	err = s.repo.DecreaseBalance(ctx, tx, repo.ChangeBalanceParams{
-		Username: senderUsername,
-		Amount:   params.Amount,
-	})
-	if err != nil {
+	if err = s.repo.DecreaseBalance(ctx, tx, repo.ChangeBalanceParams{
+		Username: senderUsername, Amount: params.Amount,
+	}); err != nil {
 		return fmt.Errorf("s.repo.DecreaseBalance: %w", err)
 	}
 
-	err = s.repo.IncreaseBalance(ctx, tx, repo.ChangeBalanceParams{
-		Username: params.ReceiverUsername,
-		Amount:   params.Amount,
-	})
-	if err != nil {
+	if err = s.repo.IncreaseBalance(ctx, tx, repo.ChangeBalanceParams{
+		Username: params.ReceiverUsername, Amount: params.Amount,
+	}); err != nil {
 		return fmt.Errorf("s.repo.IncreaseBalance: %w", err)
 	}
 
-	err = s.repo.SaveTransaction(ctx, repo.SaveTransactionParams{
-		SenderUsername:   senderUsername,
-		ReceiverUsername: params.ReceiverUsername,
-		Amount:           params.Amount,
-	})
-	if err != nil {
+	if err = s.repo.SaveTransaction(ctx, repo.SaveTransactionParams{
+		SenderUsername: senderUsername, ReceiverUsername: params.ReceiverUsername, Amount: params.Amount,
+	}); err != nil {
 		return fmt.Errorf("s.repo.SaveTransaction: %w", err)
+	}
+
+	if err = s.repo.CommitTx(tx); err != nil {
+		return fmt.Errorf("s.repo.CommitTx: %w", err)
 	}
 
 	return nil

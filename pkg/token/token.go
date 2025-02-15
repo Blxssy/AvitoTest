@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+type TokenGenerator interface {
+	NewToken(username string) (string, error)
+	ParseToken(tokenString string) (string, error)
+}
+
 type TokenGen struct {
 	tokenKey string
 	tokenTTL time.Duration
@@ -16,7 +21,7 @@ type TokenConfig struct {
 	TokenTTL time.Duration
 }
 
-func NewTokenGen(cfg TokenConfig) *TokenGen {
+func NewTokenGen(cfg TokenConfig) TokenGenerator {
 	return &TokenGen{
 		tokenKey: cfg.TokenKey,
 		tokenTTL: cfg.TokenTTL,

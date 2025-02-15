@@ -19,4 +19,6 @@ type CoinRepository interface {
 	GetPurchases(ctx context.Context, username string) ([]models.PurchaseItem, error)
 	BuyItem(ctx context.Context, params BuyItemParams) error
 	GetItem(ctx context.Context, itemName string) (models.Item, error)
+	CommitTx(tx *sqlx.Tx) error
+	RollbackTx(tx *sqlx.Tx) error
 }
