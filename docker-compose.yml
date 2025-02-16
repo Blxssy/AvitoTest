@@ -5,7 +5,9 @@ services:
     image: postgres:latest
     container_name: coin_db
     environment:
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=coin-service
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
@@ -16,20 +18,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
-  coin-service:
+  avito-shop-service:
     build: .
-    container_name: coin-backend
+    container_name: avito-shop-service
     command:
       - ./main
+    environment:
+      - LOG_LEVEL=dev
+      - SERVER_ADDR=0.0.0.0:8080
+      - DB_DATA_SOURCE=postgres://postgres:postgres@postgres:5432/coin-service?sslmode=disable
+      - DB_PATH_TO_MIGRATIONS=./internal/repo/pg/migrations
+      - TOKEN_KEY=80FcaIMY0+KPwOMQ744QPxEW9WE/8KolWNkK9iB5RhY
+      - TOKEN_TTL=1h
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
-    env_file:
-      - ./.env
+    networks:
+      - internal
 
 volumes:
   db_data:
 
+networks:
+  internal:
