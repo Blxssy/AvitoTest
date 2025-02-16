@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v6"
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -41,10 +40,6 @@ var (
 
 func Get() *Config {
 	once.Do(func() {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatal("Error loading env")
-		}
 		if err := env.Parse(&config); err != nil {
 			log.Fatal(err)
 		}
