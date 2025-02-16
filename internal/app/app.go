@@ -46,7 +46,7 @@ func Run(cfg *config.Config) {
 	})
 
 	go func() {
-		if err := httpServer.Run(); err != nil {
+		if err = httpServer.Run(); err != nil {
 			log.Fatal(fmt.Sprintf("error occurred while running HTTP server: %v", err))
 		}
 	}()

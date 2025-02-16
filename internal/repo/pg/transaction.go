@@ -59,7 +59,12 @@ func (r *CoinRepo) GetTransactions(ctx context.Context, username string) ([]mode
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			return
+		}
+	}()
 
 	var transactions []models.Transaction
 	for rows.Next() {
@@ -89,7 +94,12 @@ func (r *CoinRepo) ReceivedCoinsInfo(ctx context.Context, username string) ([]mo
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			return
+		}
+	}()
 
 	var transactions []models.Transaction
 	for rows.Next() {

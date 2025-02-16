@@ -41,7 +41,10 @@ var (
 
 func Get() *Config {
 	once.Do(func() {
-		_ = godotenv.Load()
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading env")
+		}
 		if err := env.Parse(&config); err != nil {
 			log.Fatal(err)
 		}

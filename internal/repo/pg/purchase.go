@@ -60,7 +60,12 @@ func (r *CoinRepo) BuyItem(ctx context.Context, params repo.BuyItemParams) error
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+
+	defer func() {
+		if err = tx.Rollback(); err != nil {
+			return
+		}
+	}()
 
 	var balance int
 	err = tx.QueryRowContext(ctx, "SELECT balance FROM users WHERE username=$1", params.Username).Scan(&balance)

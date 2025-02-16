@@ -58,8 +58,8 @@ func (s *coinService) Auth(ctx context.Context, params AuthParams) (string, erro
 	}
 
 	if user == nil {
-		passHash, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.MinCost)
-		if err != nil {
+		passHash, passErr := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.MinCost)
+		if passErr != nil {
 			return "", UnauthorizedError
 		}
 
@@ -72,8 +72,8 @@ func (s *coinService) Auth(ctx context.Context, params AuthParams) (string, erro
 			return "", fmt.Errorf("s.repo.CreateUser: %w", err)
 		}
 
-		accessToken, err := s.tokenGen.NewToken(params.Username)
-		if err != nil {
+		accessToken, tErr := s.tokenGen.NewToken(params.Username)
+		if tErr != nil {
 			return "", fmt.Errorf("s.tokenGen.NewToken: %w", err)
 		}
 
@@ -125,7 +125,10 @@ func (s *coinService) SendCoins(ctx context.Context, params TransactionParams) e
 
 	defer func() {
 		if err != nil {
-			_ = s.repo.RollbackTx(tx)
+			err = s.repo.RollbackTx(tx)
+			if err != nil {
+				err = fmt.Errorf("s.repo.RollbackTx: %w", err)
+			}
 		}
 	}()
 

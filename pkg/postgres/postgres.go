@@ -51,6 +51,9 @@ func RunMigrations(instance *sql.DB, cfg config.PostgresConfig) (uint, error) {
 		return 0, fmt.Errorf("up migrations: %w", err)
 	}
 
-	version, _, _ := migrateInst.Version()
+	version, _, err := migrateInst.Version()
+	if err != nil {
+		return 0, fmt.Errorf("migrate: %w", err)
+	}
 	return version, nil
 }
